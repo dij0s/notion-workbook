@@ -1,3 +1,5 @@
+// TODO: Handle bullet points and quotes, handle displaying of columns
+
 import process from 'process'
 import * as fs from 'fs'
 import * as dotenv from 'dotenv'
@@ -16,6 +18,14 @@ if (process.argv.length != 3) {
         notionToMDClient.setCustomTransformer('equation', async (block) => {
             const { equation } = block
             return `$$${equation?.expression}$$`
+        })
+        notionToMDClient.setCustomTransformer('paragraph', async (block) => {
+            var out = ""
+            block.paragraph.rich_text.forEach((subBlock) => {
+                if (subBlock.type === 'equation') out += `$${subBlock.equation.expression}$`
+                else out += subBlock.plain_text
+            })
+            return out
         })
 
         const modulePage = await notionClient.search({
@@ -58,7 +68,8 @@ if (process.argv.length != 3) {
         Promise.all(subUnitPages.results.sort((page) => page.created_time).reverse().map((page) => notionClient.blocks.children.list({
             block_id: page.id
         }))).then((data) => {
-            const blocksToConvert = data.map((block) => block.results.filter((b) => b.type != 'table_of_contents')).flat(1)
+            const blocksToConvert = data.map((block) => block.results.filter((b) => b.type !== 'table_of_contents')).flat(1)
+            // data.map((block) => block.results.filter((b) => b.type == 'paragraph')).flat(1).forEach((a) => console.log(a.paragraph.rich_text))
             notionToMDClient.blocksToMarkdown(blocksToConvert).then((mdBlocks) => {
                 const mdString = notionToMDClient.toMarkdownString(mdBlocks)
                 const filePath = `./export/${moment().format('YYYY-MM-DD')}_${process.argv[2].replace('.', '-')}_export.md`
