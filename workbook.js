@@ -13,6 +13,10 @@ if (process.argv.length != 3) {
     (async () => {
         const notionClient = new Client({ auth: process.env.NOTION_INTEGRATION_KEY })
         const notionToMDClient = new NotionToMarkdown({ notionClient: notionClient })
+        notionToMDClient.setCustomTransformer('equation', async (block) => {
+            const { equation } = block
+            return `$$${equation?.expression}$$`
+        })
 
         const modulePage = await notionClient.search({
             query: process.argv[2].split('.')[0],
