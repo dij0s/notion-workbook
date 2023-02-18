@@ -1,32 +1,20 @@
-// TODO: Handle bullet points and quotes, handle displaying of columns
+// TODO: handle displaying of columns
 
 import process from 'process'
 import * as fs from 'fs'
 import * as dotenv from 'dotenv'
 import { Client } from '@notionhq/client'
-import { NotionToMarkdown } from 'notion-to-md'
+import setupNotionToMDClient from './lib/notionToMDClient.mjs'
 import moment from 'moment'
 
 dotenv.config()
 
 if (process.argv.length != 3) {
-    console.log("Missing argument 'Unit'")
+    console.log("Usage: node workbook.js {unit}")
 } else {
     (async () => {
         const notionClient = new Client({ auth: process.env.NOTION_INTEGRATION_KEY })
-        const notionToMDClient = new NotionToMarkdown({ notionClient: notionClient })
-        notionToMDClient.setCustomTransformer('equation', async (block) => {
-            const { equation } = block
-            return `$$${equation?.expression}$$`
-        })
-        notionToMDClient.setCustomTransformer('paragraph', async (block) => {
-            var out = ""
-            block.paragraph.rich_text.forEach((subBlock) => {
-                if (subBlock.type === 'equation') out += `$${subBlock.equation.expression}$`
-                else out += subBlock.plain_text
-            })
-            return out
-        })
+        const notionToMDClient = setupNotionToMDClient({ notionClient })
 
         const modulePage = await notionClient.search({
             query: process.argv[2].split('.')[0],
@@ -69,7 +57,7 @@ if (process.argv.length != 3) {
             block_id: page.id
         }))).then((data) => {
             const blocksToConvert = data.map((block) => block.results.filter((b) => b.type !== 'table_of_contents')).flat(1)
-            // data.map((block) => block.results.filter((b) => b.type == 'paragraph')).flat(1).forEach((a) => console.log(a.paragraph.rich_text))
+            // data.map((block) => block.results.filter((b) => b.type == 'numbered_list_item')).flat(1).forEach((a) => console.log(a.numbered_list_item.rich_text))
             notionToMDClient.blocksToMarkdown(blocksToConvert).then((mdBlocks) => {
                 const mdString = notionToMDClient.toMarkdownString(mdBlocks)
                 const filePath = `./export/${moment().format('YYYY-MM-DD')}_${process.argv[2].replace('.', '-')}_export.md`
